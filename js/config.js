@@ -86,24 +86,22 @@ const EXPERIMENT_CONFIG = {
   // 三、情景配置 ★★★ 自定义你的实验内容 ★★★
   // ==========================================
   scenario: {
-    // ---- 视频库（支持分支视频串联）----
+    // ---- 视频库（支持双视频串联 + 分支）----
     videos: {
-      // 主情景视频
-      main: 'assets/video/scenario.mp4',
+      // 情景视频1（先播放）
+      scenario1: 'assets/video/scenario1.mp4',
+      // 情景视频2（选题+录音后播放）
+      scenario2: 'assets/video/scenario2.mp4',
       
       // ★★★ 预留：分支视频 ★★★
-      // 根据被试选择的不同，可以播放不同的后续视频
-      // 示例：选A → 播放 branch_a.mp4，选B → 播放 branch_b.mp4
       branch_a: 'assets/video/branch_a.mp4',
       branch_b: 'assets/video/branch_b.mp4',
-      branch_c: 'assets/video/branch_c.mp4',
-      branch_d: 'assets/video/branch_d.mp4',
     },
     
-    // 当前使用的视频路径（默认主情景）
-    videoSrc: 'assets/video/scenario.mp4',
-
-    // ---- 视频结束后浮出的选择题 ----
+    // 视频播放序列（按顺序播放）
+    videoSequence: ['scenario1', 'scenario2'],
+    
+    // 选择题（在 scenario1 结束后弹出）
     questions: [
       {
         id: 'q1',
@@ -127,20 +125,14 @@ const EXPERIMENT_CONFIG = {
       },
     ],
 
-    // ---- 选题后浮出的语音问题 ----
+    // 语音问题
     voiceQuestion: '请用语音回答：在刚才的情景中，您做出选择的主要原因是什么？',
 
-    // ★★★ 预留：分支逻辑 ★★★
-    // 根据选择题结果决定下一个视频
-    // key 为 questionId，value 为选项→视频的映射
-    // 示例：{ q1: { A: 'branch_a', B: 'branch_b' } }
-    // 如果不需要分支，保持为空对象 {}
-    branching: {
-      // q1: { A: 'branch_a', B: 'branch_b' },
-      // q2: { A: 'branch_a', B: 'branch_b', C: 'branch_c', D: 'branch_d' },
-    },
+    // 分支逻辑（预留）
+    branching: {},
     
-    // 总共有几个视频节点（用于进度显示，1 = 单视频无分支）
+    // 第一个视频的总视频节点数
+    totalVideoNodes: 2,
     totalVideoNodes: 1,
   },
 

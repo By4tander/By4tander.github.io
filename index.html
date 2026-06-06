@@ -201,6 +201,13 @@
            disablePictureInPicture disableRemotePlayback
            preload="auto"></video>
 
+    <!-- 视频控制栏（右上角） -->
+    <div class="cinema-controls" id="cinemaControls">
+      <button class="ctrl-btn" id="btnCinemaBack" title="后退10秒">⏪</button>
+      <button class="ctrl-btn" id="btnCinemaToggle" title="暂停/播放">⏯️</button>
+      <button class="ctrl-btn" id="btnCinemaFwd" title="快进10秒">⏩</button>
+    </div>
+
     <!-- 淡入过渡层 -->
     <div class="cinema-fade" id="cinemaFade"></div>
 
@@ -239,7 +246,7 @@
 
         <div class="record-controls">
           <button class="btn btn-record" id="btnCinemaRecord">
-            <span class="record-dot"></span> 开始录音 (10秒)
+            <span class="record-dot"></span> 点击开始录音
           </button>
           <span class="record-timer" id="cinemaTimer">00:00</span>
         </div>
@@ -252,6 +259,7 @@
         <div class="voice-actions" id="cinemaVoiceActions" style="display:none;">
           <button class="btn btn-success" id="btnCinemaVoiceOK">✅ 确认提交</button>
           <button class="btn btn-warning" id="btnCinemaVoiceRetry">🔄 重新录制</button>
+          <button class="btn btn-outline" id="btnCinemaBackToChoice">⬅ 返回修改选项</button>
         </div>
       </div>
     </div>

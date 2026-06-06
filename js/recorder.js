@@ -67,13 +67,7 @@ class AudioRecorder {
         video: false,
       });
       this.micPermission = 'granted';
-      try {
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        this.analyser = this.audioContext.createAnalyser();
-        this.analyser.fftSize = 256;
-        const source = this.audioContext.createMediaStreamSource(this.stream);
-        source.connect(this.analyser);
-      } catch (e) { /* 可视化不可用，忽略 */ }
+      this._initAnalyserFromStream();
       return true;
     } catch (error) {
       this.micPermission = 'denied';
@@ -84,6 +78,33 @@ class AudioRecorder {
       this.onError({ type: 'permission', message: msg, originalError: error });
       return false;
     }
+  }
+
+  /**
+   * 从已有 stream 初始化 AudioContext / Analyser（用于复用 stream 的场景）
+   * 修复复用 stream 时可视化条不动的 bug
+   */
+  initAnalyserFromStream() {
+    if (!this.stream) return;
+    // 关闭旧的 AudioContext
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close();
+    }
+    try {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      const source = this.audioContext.createMediaStreamSource(this.stream);
+      source.connect(this.analyser);
+    } catch (e) {
+      console.warn('[Recorder] AudioContext 初始化失败:', e.message);
+      this.analyser = null;
+    }
+  }
+
+  /** 内部方法 — 兼容旧调用 */
+  _initAnalyserFromStream() {
+    return this.initAnalyserFromStream();
   }
 
   /**
