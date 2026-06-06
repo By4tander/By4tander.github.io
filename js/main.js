@@ -17,7 +17,7 @@
   // 页面关闭前保存数据
   window.addEventListener('beforeunload', (e) => {
     // 如果实验进行中，提醒用户
-    if (Experiment.currentStage > 0 && Experiment.currentStage < 6) {
+    if (Experiment.currentStage > 0 && Experiment.currentStage < 4) {
       // 自动保存当前数据
       const pkg = DataCollector.getPackage();
       StorageManager.save('interrupted', pkg);
@@ -26,7 +26,7 @@
 
   // 检测用户尝试离开页面
   window.addEventListener('pagehide', () => {
-    if (Experiment.currentStage > 0 && Experiment.currentStage < 6) {
+    if (Experiment.currentStage > 0 && Experiment.currentStage < 4) {
       const pkg = DataCollector.getPackage();
       StorageManager.save('interrupted', pkg);
     }

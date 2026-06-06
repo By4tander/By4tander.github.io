@@ -81,9 +81,10 @@ const DataCollector = {
       passed: testData.passed,
       audioBase64: testData.audioBase64 || null,
       audioSize: testData.audioSize || 0,
+      duration: testData.duration || 0,
       timestamp: new Date().toISOString(),
     };
-    this.logEvent('mic_test_completed', { passed: testData.passed });
+    this.logEvent('mic_test_completed', { passed: testData.passed, duration: testData.duration });
   },
 
   /**

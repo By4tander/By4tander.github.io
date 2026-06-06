@@ -5,14 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>心理学实验平台 | 语音交互研究</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- 预留：阿里云SDK -->
-  <!-- <script src="https://g.alicdn.com/code/lib/xxx/aliyun-sdk.min.js"></script> -->
 </head>
 <body>
   <!-- ========== 顶部进度条 ========== -->
   <div class="progress-bar" id="progressBar">
     <div class="progress-fill" id="progressFill"></div>
-    <span class="progress-text" id="progressText">步骤 0/6</span>
+    <span class="progress-text" id="progressText">步骤 0/4</span>
   </div>
 
   <main class="container" id="mainContainer">
@@ -35,9 +33,8 @@
               <ol>
                 <li>麦克风功能测试（录制约5秒语音样本）</li>
                 <li>输入被试编号</li>
-                <li>观看简短视频情景</li>
-                <li>完成屏幕交互选择题</li>
-                <li>使用语音回答问题</li>
+                <li>观看全屏互动视频情景</li>
+                <li>在视频界面完成交互选择与语音回答</li>
               </ol>
               <p>预计总时长：<strong>5-10分钟</strong></p>
 
@@ -45,20 +42,20 @@
               <p><strong>⚠️ 本实验将请求麦克风权限录制您的语音。</strong>我们将采集以下数据：</p>
               <ul>
                 <li>您在实验中的<strong>语音录音</strong>（通过浏览器麦克风录制）</li>
-                <li>您在实验中的<strong>选择题作答</strong>和<strong>文本输入</strong></li>
+                <li>您在实验中的<strong>选择题作答</strong></li>
                 <li>被试编号（不包含个人身份信息）</li>
               </ul>
 
               <h3>三、数据用途与保护</h3>
               <ul>
                 <li>所有数据<strong>仅用于学术研究</strong>，不会用于任何商业目的</li>
-                <li>数据将<strong>匿名化处理</strong>，您的个人身份不会被识别</li>
+                <li>数据将<strong>匿名化处理</strong></li>
                 <li>数据存储于安全的云服务器，仅授权研究人员可访问</li>
                 <li>您有权在实验过程中随时退出，数据将被删除</li>
               </ul>
 
               <h3>四、自愿参与声明</h3>
-              <p>参与本实验完全自愿。您可以在任何时刻退出实验，退出不会带来任何不利后果。如您对实验有任何疑问，可联系研究人员。</p>
+              <p>参与本实验完全自愿。您可以在任何时刻退出实验。如您对实验有任何疑问，可联系研究人员。</p>
             </div>
 
             <div class="consent-agreement">
@@ -93,16 +90,11 @@
           </div>
 
           <div class="audio-visualizer" id="audioVisualizer">
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
+            <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
           </div>
 
           <div class="record-controls">
@@ -115,6 +107,9 @@
           <div class="playback-section" id="playbackSection" style="display:none;">
             <p class="playback-label">录音回放：</p>
             <audio id="audioPlayback" controls></audio>
+            <button class="btn btn-sm btn-outline" id="btnDownloadMicTest" style="display:none;">
+              💾 下载录音文件 (.webm)
+            </button>
           </div>
 
           <div class="mic-test-result" id="micTestResult" style="display:none;">
@@ -140,126 +135,24 @@
             <p class="hint-text">此编号仅用于数据标识，不关联任何个人身份信息。</p>
           </div>
 
-          <!-- 预留：扩展字段 -->
           <div class="form-group" style="display:none;" id="extraFieldsGroup">
             <label for="subjectAge">年龄</label>
-            <input type="number" id="subjectAge" class="form-input" 
-                   placeholder="请输入年龄" min="18" max="99">
+            <input type="number" id="subjectAge" class="form-input" placeholder="请输入年龄">
             <label for="subjectGender">性别</label>
             <select id="subjectGender" class="form-input">
-              <option value="">请选择</option>
-              <option value="male">男</option>
-              <option value="female">女</option>
-              <option value="other">其他</option>
+              <option value="">请选择</option><option value="male">男</option>
+              <option value="female">女</option><option value="other">其他</option>
             </select>
           </div>
 
           <button class="btn btn-primary btn-block" id="btnStartExperiment" disabled>
-            开始实验
+            开始实验 — 进入全屏互动视频
           </button>
         </div>
       </div>
     </section>
 
-    <!-- ========== Stage 3: 视频情景 ========== -->
-    <section class="stage" id="stage-video">
-      <div class="card">
-        <h1 class="card-title">🎬 情景视频</h1>
-        <div class="card-body">
-          <p class="instruction">请仔细观看以下情景视频。视频结束后将出现相关问题。</p>
-          
-          <div class="video-container">
-            <!-- ★★★ 预留：替换为您的测试视频 ★★★ -->
-            <video id="scenarioVideo" controls playsinline>
-              <source src="assets/video/scenario.mp4" type="video/mp4">
-              <source src="assets/video/scenario.webm" type="video/webm">
-              您的浏览器不支持视频播放，请使用 Chrome 或 Edge 浏览器。
-            </video>
-            <p class="video-placeholder-text">
-              📁 请将测试视频重命名为 <code>scenario.mp4</code> 并放入 <code>assets/video/</code> 目录
-            </p>
-          </div>
-
-          <button class="btn btn-primary btn-block" id="btnVideoContinue" style="display:none;">
-            视频已看完，继续
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== Stage 4: 选择题 ========== -->
-    <section class="stage" id="stage-choice">
-      <div class="card">
-        <h1 class="card-title">📝 情景问题</h1>
-        <div class="card-body">
-          <div class="scenario-context" id="scenarioContext">
-            <!-- ★★★ 预留：情景描述文本 ★★★ -->
-            <p>根据刚才观看的视频情景，请回答以下问题：</p>
-          </div>
-
-          <div class="question-block" id="questionBlock">
-            <!-- ★★★ 预留：动态生成题目 ★★★ -->
-            <!-- 题目将在此处由 JS 动态渲染 -->
-          </div>
-
-          <button class="btn btn-primary btn-block" id="btnSubmitChoices" disabled>
-            提交答案
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== Stage 5: 语音回答 ========== -->
-    <section class="stage" id="stage-voice">
-      <div class="card">
-        <h1 class="card-title">🗣️ 语音回答</h1>
-        <div class="card-body">
-          <p class="instruction">请使用语音回答以下问题。点击录音按钮开始，系统将录制最多10秒。</p>
-
-          <div class="voice-question" id="voiceQuestion">
-            <!-- ★★★ 预留：语音提问文本 ★★★ -->
-            <p class="question-text">请用语音回答：在刚才的情景中，您做出选择的主要原因是什么？</p>
-          </div>
-
-          <div class="mic-status" id="voiceMicStatus">
-            <div class="mic-icon">🎤</div>
-            <p id="voiceMicStatusText">准备录音</p>
-          </div>
-
-          <div class="audio-visualizer" id="voiceVisualizer">
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-            <div class="visualizer-bar" style="height:0%"></div>
-          </div>
-
-          <div class="record-controls">
-            <button class="btn btn-record" id="btnVoiceRecord">
-              <span class="record-dot"></span> 开始录音 (10秒)
-            </button>
-            <span class="record-timer" id="voiceTimer">00:00</span>
-          </div>
-
-          <div class="playback-section" id="voicePlayback" style="display:none;">
-            <p class="playback-label">录音回放：</p>
-            <audio id="voicePlaybackAudio" controls></audio>
-          </div>
-
-          <div class="voice-actions" id="voiceActions" style="display:none;">
-            <button class="btn btn-success" id="btnVoiceOK">✅ 确认，提交回答</button>
-            <button class="btn btn-warning" id="btnVoiceRetry">🔄 重新录制</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== Stage 6: 完成页 ========== -->
+    <!-- ========== Stage 3: 完成页 ========== -->
     <section class="stage" id="stage-complete">
       <div class="card">
         <h1 class="card-title">✅ 实验完成</h1>
@@ -276,10 +169,15 @@
             <p id="uploadResultText"></p>
           </div>
 
-          <!-- 数据下载（本地备份） -->
           <div class="data-download" id="dataDownload" style="display:none;">
             <button class="btn btn-outline" id="btnDownloadData">
-              📥 下载实验数据（本地备份）
+              📥 下载完整实验数据 (JSON)
+            </button>
+            <button class="btn btn-outline" id="btnDownloadVoiceAudio" style="display:none;">
+              🎵 下载语音回答 (.webm)
+            </button>
+            <button class="btn btn-outline" id="btnDownloadMicAudio" style="display:none;">
+              🎤 下载麦克风测试录音 (.webm)
             </button>
           </div>
 
@@ -293,9 +191,90 @@
 
   </main>
 
-  <!-- ========== 全局错误/加载弹窗 ========== -->
+  <!-- ================================================================
+       全屏沉浸式影院模式（替代原来的 Stage 3+4+5）
+       ================================================================ -->
+  <div class="cinema-overlay" id="cinemaOverlay" style="display:none;">
+    
+    <!-- 全屏视频背景 -->
+    <video id="cinemaVideo" playsinline webkit-playsinline
+           disablePictureInPicture disableRemotePlayback
+           preload="auto"></video>
+
+    <!-- 淡入过渡层 -->
+    <div class="cinema-fade" id="cinemaFade"></div>
+
+    <!-- ============ 选择题浮层 ============ -->
+    <div class="cinema-ui choice-overlay" id="choiceOverlay" style="display:none;">
+      <div class="overlay-card">
+        <div class="overlay-header">
+          <span class="overlay-step">📝 请做出选择</span>
+        </div>
+        <div class="question-block" id="cinemaQuestionBlock">
+          <!-- JS 动态渲染 -->
+        </div>
+        <button class="btn btn-primary btn-block" id="btnCinemaSubmit" disabled>
+          确认选择
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ 语音录制浮层 ============ -->
+    <div class="cinema-ui voice-overlay" id="voiceOverlay" style="display:none;">
+      <div class="overlay-card">
+        <div class="overlay-header">
+          <span class="overlay-step">🗣️ 请用语音回答</span>
+        </div>
+        <p class="question-text" id="cinemaVoiceQuestion">
+          <!-- JS 动态设置 -->
+        </p>
+
+        <div class="audio-visualizer" id="cinemaVisualizer">
+          <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div><div class="visualizer-bar"></div>
+        </div>
+
+        <div class="record-controls">
+          <button class="btn btn-record" id="btnCinemaRecord">
+            <span class="record-dot"></span> 开始录音 (10秒)
+          </button>
+          <span class="record-timer" id="cinemaTimer">00:00</span>
+        </div>
+
+        <div class="playback-section" id="cinemaPlayback" style="display:none;">
+          <p class="playback-label">录音回放：</p>
+          <audio id="cinemaPlaybackAudio" controls></audio>
+        </div>
+
+        <div class="voice-actions" id="cinemaVoiceActions" style="display:none;">
+          <button class="btn btn-success" id="btnCinemaVoiceOK">✅ 确认提交</button>
+          <button class="btn btn-warning" id="btnCinemaVoiceRetry">🔄 重新录制</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 过渡完成浮层 ============ -->
+    <div class="cinema-ui complete-overlay" id="cinemaCompleteOverlay" style="display:none;">
+      <div class="overlay-card overlay-card-sm">
+        <div class="complete-icon" style="font-size:48px;">✅</div>
+        <p style="text-align:center; font-size:18px; margin:8px 0;">
+          回答已完成，正在处理数据...
+        </p>
+      </div>
+    </div>
+
+    <!-- 跳过按钮（右上角，可选） -->
+    <button class="cinema-skip" id="btnCinemaSkip" style="display:none;" 
+            title="跳过当前环节">跳过 ▸</button>
+
+  </div>
+
+  <!-- ========== 全局弹窗 ========== -->
   <div class="modal-overlay" id="modalOverlay" style="display:none;">
-    <div class="modal-card" id="modalCard">
+    <div class="modal-card">
       <div class="modal-body" id="modalBody"></div>
       <div class="modal-footer">
         <button class="btn btn-primary" id="btnModalClose">确定</button>
@@ -303,7 +282,7 @@
     </div>
   </div>
 
-  <!-- ========== JavaScript 模块 ========== -->
+  <!-- ========== JavaScript ========== -->
   <script src="js/config.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/recorder.js"></script>

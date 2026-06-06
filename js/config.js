@@ -64,39 +64,46 @@ const EXPERIMENT_CONFIG = {
   // 二、实验参数
   // ==========================================
   experiment: {
-    // 实验名称
     name: '语言交互行为实验',
+    version: '2.0.0',
     
-    // 实验版本号
-    version: '1.0.0',
-    
-    // 麦克风测试录音时长（秒）
-    micTestDuration: 5,
-    
-    // 语音回答录音时长（秒）
-    voiceAnswerDuration: 10,
+    // 录音均为手动启停模式（被试自主控制开始/结束）
+    // 以下为安全上限（秒）
+    micTestMaxDuration: 30,
+    voiceAnswerMaxDuration: 120,
     
     // 音频格式
     audioMimeType: 'audio/webm;codecs=opus',
     
-    // 是否允许被试跳过视频
-    allowSkipVideo: false,
+    // 是否显示影院跳过按钮（调试用，正式实验应设为 false）
+    showSkipButton: true,
     
     // 是否在本地存储备份数据
     localStorageBackup: true,
   },
 
   // ==========================================
-  // 三、情景问题配置 ★★★ 预留 ★★★
+  // 三、情景配置 ★★★ 自定义你的实验内容 ★★★
   // ==========================================
   scenario: {
-    // 情景描述（显示在选择页顶部）
-    description: '根据刚才观看的视频情景，请回答以下问题：',
+    // ---- 视频库（支持分支视频串联）----
+    videos: {
+      // 主情景视频
+      main: 'assets/video/scenario.mp4',
+      
+      // ★★★ 预留：分支视频 ★★★
+      // 根据被试选择的不同，可以播放不同的后续视频
+      // 示例：选A → 播放 branch_a.mp4，选B → 播放 branch_b.mp4
+      branch_a: 'assets/video/branch_a.mp4',
+      branch_b: 'assets/video/branch_b.mp4',
+      branch_c: 'assets/video/branch_c.mp4',
+      branch_d: 'assets/video/branch_d.mp4',
+    },
     
-    // 视频文件路径
+    // 当前使用的视频路径（默认主情景）
     videoSrc: 'assets/video/scenario.mp4',
-    
-    // 选择题列表（可动态修改）
+
+    // ---- 视频结束后浮出的选择题 ----
     questions: [
       {
         id: 'q1',
@@ -120,8 +127,21 @@ const EXPERIMENT_CONFIG = {
       },
     ],
 
-    // 语音回答问题
+    // ---- 选题后浮出的语音问题 ----
     voiceQuestion: '请用语音回答：在刚才的情景中，您做出选择的主要原因是什么？',
+
+    // ★★★ 预留：分支逻辑 ★★★
+    // 根据选择题结果决定下一个视频
+    // key 为 questionId，value 为选项→视频的映射
+    // 示例：{ q1: { A: 'branch_a', B: 'branch_b' } }
+    // 如果不需要分支，保持为空对象 {}
+    branching: {
+      // q1: { A: 'branch_a', B: 'branch_b' },
+      // q2: { A: 'branch_a', B: 'branch_b', C: 'branch_c', D: 'branch_d' },
+    },
+    
+    // 总共有几个视频节点（用于进度显示，1 = 单视频无分支）
+    totalVideoNodes: 1,
   },
 
   // ==========================================
@@ -131,9 +151,7 @@ const EXPERIMENT_CONFIG = {
     consentTitle: '🎓 语言交互行为实验',
     micTestTitle: '🎤 麦克风测试',
     subjectTitle: '📋 被试信息',
-    videoTitle: '🎬 情景视频',
-    choiceTitle: '📝 情景问题',
-    voiceTitle: '🗣️ 语音回答',
+    cinemaTitle: '🎬 互动视频',
     completeTitle: '✅ 实验完成',
   },
 };

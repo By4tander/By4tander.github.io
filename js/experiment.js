@@ -1,35 +1,21 @@
 /**
  * ============================================================
- * 实验流程控制器 - 管理 Stage 切换和交互逻辑
+ * 实验流程控制器 v2.0 - 沉浸式影院模式
+ * ============================================================
+ * 流程: 知情同意→麦克风测试→被试编号→全屏互动影院→完成
+ * 影院内: 视频播放→暂停浮现选题→选中后浮现语音→完成退出
  * ============================================================
  */
 
 const Experiment = {
-  // 当前阶段索引（0-6）
   currentStage: 0,
-  
-  // 阶段列表
-  stages: [
-    'consent',    // 0: 知情同意
-    'mic-test',   // 1: 麦克风测试
-    'subject-id', // 2: 被试编号
-    'video',      // 3: 视频情景
-    'choice',     // 4: 选择题
-    'voice',      // 5: 语音回答
-    'complete',   // 6: 完成页
-  ],
+  stages: ['consent', 'mic-test', 'subject-id', 'cinema', 'complete'],
 
-  // 录音器实例
   micTestRecorder: null,
   voiceRecorder: null,
+  micTestAudio: null,    // { blob, url }
+  voiceAudio: null,      // { blob, url }
 
-  // 录音数据
-  micTestAudio: null,   // { blob, url, base64 }
-  voiceAudio: null,     // { blob, url, base64 }
-
-  /**
-   * 初始化实验
-   */
   init() {
     DataCollector.reset();
     this._bindEvents();
@@ -37,242 +23,172 @@ const Experiment = {
     this._checkBrowser();
   },
 
-  /**
-   * 浏览器兼容性检查
-   */
   _checkBrowser() {
-    const warnings = [];
-    const testRecorder = new AudioRecorder({ maxDuration: 1000 });
-    
-    if (!testRecorder.isSupported) {
-      warnings.push('您的浏览器不支持录音功能，请使用最新版 Chrome、Edge 或 Firefox。');
-    }
-
-    if (warnings.length > 0) {
-      this._showModal(warnings.join('<br>'));
+    const tr = new AudioRecorder({ maxDuration: 1000 });
+    if (!tr.isSupported) {
+      this._showModal('您的浏览器不支持录音功能，请使用最新版 Chrome、Edge 或 Firefox。');
     }
   },
 
-  /**
-   * 绑定全局事件
-   */
-  _bindEvents() {
-    // 知情同意 → 下一步
-    document.getElementById('consentCheckbox').addEventListener('change', (e) => {
-      const checked = e.target.checked;
-      const btn = document.getElementById('btnConsentNext');
-      const hint = document.getElementById('consentHint');
-      btn.disabled = !checked;
-      hint.style.display = checked ? 'none' : 'block';
-    });
+  // ==================== 事件绑定 ====================
 
+  _bindEvents() {
+    // ---- 知情同意 ----
+    const cb = document.getElementById('consentCheckbox');
+    cb.addEventListener('change', () => {
+      const ok = cb.checked;
+      document.getElementById('btnConsentNext').disabled = !ok;
+      document.getElementById('consentHint').style.display = ok ? 'none' : 'block';
+    });
     document.getElementById('btnConsentNext').addEventListener('click', () => {
       DataCollector.setConsent();
       this._showStage(1);
     });
 
-    // 麦克风测试按钮
+    // ---- 麦克风测试（手动启停）----
     document.getElementById('btnStartRecord').addEventListener('click', () => {
-      this._startMicTest();
+      if (!this.micTestRecorder) return;
+      if (this.micTestRecorder.isRecording) {
+        this.micTestRecorder.stop();
+      } else {
+        this.micTestRecorder.start();
+      }
+    });
+    document.getElementById('btnMicOK').addEventListener('click', () => this._showStage(2));
+    document.getElementById('btnMicRetry').addEventListener('click', () => this._resetMicTest());
+    // 麦克风测试录音下载
+    document.getElementById('btnDownloadMicTest').addEventListener('click', () => {
+      if (this.micTestAudio?.blob) this._downloadBlob(this.micTestAudio.blob, 'mic-test.webm');
     });
 
-    document.getElementById('btnMicOK').addEventListener('click', () => {
-      this._showStage(2);
+    // ---- 被试编号 ----
+    const subj = document.getElementById('subjectId');
+    subj.addEventListener('input', () => {
+      document.getElementById('btnStartExperiment').disabled = !subj.value.trim();
     });
-
-    document.getElementById('btnMicRetry').addEventListener('click', () => {
-      this._resetMicTest();
-    });
-
-    // 被试编号
-    const subjectInput = document.getElementById('subjectId');
-    subjectInput.addEventListener('input', () => {
-      document.getElementById('btnStartExperiment').disabled = !subjectInput.value.trim();
-    });
-
     document.getElementById('btnStartExperiment').addEventListener('click', () => {
-      const id = subjectInput.value.trim();
-      DataCollector.setSubjectId(id);
+      DataCollector.setSubjectId(subj.value.trim());
       this._showStage(3);
     });
 
-    // 视频
-    const video = document.getElementById('scenarioVideo');
-    video.addEventListener('ended', () => {
-      DataCollector.logVideoWatched();
-      document.getElementById('btnVideoContinue').style.display = 'flex';
+    // ---- 影院：选择提交 ----
+    document.getElementById('btnCinemaSubmit').addEventListener('click', () => {
+      this._collectCinemaChoices();
+      this._hideOverlay('choice');
+      this._showOverlay('voice');
     });
 
-    document.getElementById('btnVideoContinue').addEventListener('click', () => {
-      this._showStage(4);
+    // ---- 影院：语音录制（手动启停）----
+    document.getElementById('btnCinemaRecord').addEventListener('click', () => {
+      if (!this.voiceRecorder) return;
+      if (this.voiceRecorder.isRecording) {
+        this.voiceRecorder.stop();
+      } else {
+        this.voiceRecorder.start();
+      }
+    });
+    document.getElementById('btnCinemaVoiceOK').addEventListener('click', () => {
+      this._hideOverlay('voice');
+      this._showOverlay('complete-transition');
+      setTimeout(() => this._exitCinema(), 1500);
+    });
+    document.getElementById('btnCinemaVoiceRetry').addEventListener('click', () => this._resetCinemaVoice());
+
+    // ---- 完成页 ----
+    document.getElementById('btnDownloadData').addEventListener('click', () => DataCollector.download());
+    document.getElementById('btnDownloadVoiceAudio').addEventListener('click', () => {
+      if (this.voiceAudio?.blob) this._downloadBlob(this.voiceAudio.blob, `voice-${DataCollector.session.subjectId}.webm`);
+    });
+    document.getElementById('btnDownloadMicAudio').addEventListener('click', () => {
+      if (this.micTestAudio?.blob) this._downloadBlob(this.micTestAudio.blob, `mic-test-${DataCollector.session.subjectId}.webm`);
     });
 
-    // 选择题
-    document.getElementById('btnSubmitChoices').addEventListener('click', () => {
-      this._collectChoices();
-      this._showStage(5);
-    });
-
-    // 语音回答
-    document.getElementById('btnVoiceRecord').addEventListener('click', () => {
-      this._startVoiceRecord();
-    });
-
-    document.getElementById('btnVoiceOK').addEventListener('click', () => {
-      this._showStage(6);
-    });
-
-    document.getElementById('btnVoiceRetry').addEventListener('click', () => {
-      this._resetVoiceRecord();
-    });
-
-    // 完成页 - 下载数据
-    document.getElementById('btnDownloadData').addEventListener('click', () => {
-      DataCollector.download();
-    });
-
-    // 弹窗关闭
+    // ---- 模态弹窗 ----
     document.getElementById('btnModalClose').addEventListener('click', () => {
       document.getElementById('modalOverlay').style.display = 'none';
     });
+
+    // ---- 影院跳过（调试用）----
+    document.getElementById('btnCinemaSkip').addEventListener('click', () => this._skipCinemaCurrent());
   },
 
-  /**
-   * 切换到指定阶段
-   * @param {number} index
-   */
+  // ==================== 阶段切换 ====================
+
   _showStage(index) {
-    // 隐藏所有阶段
     document.querySelectorAll('.stage').forEach(el => el.classList.remove('active'));
-
-    // 显示目标阶段
     const stageId = this.stages[index];
-    const stageEl = document.getElementById(`stage-${stageId}`);
-    if (stageEl) {
-      stageEl.classList.add('active');
-    }
-
-    // 更新进度条
+    const el = document.getElementById(`stage-${stageId}`);
+    if (el) el.classList.add('active');
     this._updateProgress(index);
-
-    // 滚动到顶部
     window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    // 阶段初始化
     this.currentStage = index;
     this._onStageEnter(stageId);
   },
 
-  /**
-   * 阶段进入时的初始化
-   * @param {string} stageId
-   */
-  _onStageEnter(stageId) {
-    switch (stageId) {
-      case 'mic-test':
-        this._initMicTest();
-        break;
-      case 'video':
-        this._initVideo();
-        break;
-      case 'choice':
-        this._renderChoices();
-        break;
-      case 'voice':
-        this._initVoiceStage();
-        break;
-      case 'complete':
-        this._handleComplete();
-        break;
-    }
-  },
-
-  /**
-   * 更新进度条
-   * @param {number} index
-   */
   _updateProgress(index) {
     const total = this.stages.length - 1;
-    const percent = Math.round((index / total) * 100);
-    document.getElementById('progressFill').style.width = `${percent}%`;
+    const pct = Math.round((index / total) * 100);
+    document.getElementById('progressFill').style.width = `${pct}%`;
     document.getElementById('progressText').textContent = `步骤 ${index}/${total}`;
   },
 
-  // ==========================================
-  // Stage 1: 麦克风测试
-  // ==========================================
-  async _initMicTest() {
-    const statusEl = document.getElementById('micStatus');
-    const statusText = document.getElementById('micStatusText');
-    const recordBtn = document.getElementById('btnStartRecord');
-
-    statusEl.className = 'mic-status';
-    statusText.textContent = '正在请求麦克风权限...';
-
-    this.micTestRecorder = new AudioRecorder({
-      maxDuration: EXPERIMENT_CONFIG.experiment.micTestDuration * 1000,
-      onTick: (remaining) => {
-        document.getElementById('recordTimer').textContent = 
-          `00:${String(remaining).padStart(2, '0')}`;
-      },
-      onStart: () => {
-        recordBtn.classList.add('recording');
-        recordBtn.innerHTML = '<span class="record-dot"></span> 录音中...';
-        recordBtn.disabled = true;
-        statusText.textContent = '正在录音，请对着麦克风说话...';
-        document.getElementById('audio-visualizer-id')?.classList?.add('active');
-      },
-      onStop: (blob, url) => {
-        recordBtn.classList.remove('recording');
-        recordBtn.innerHTML = '<span class="record-dot"></span> 开始录音 (5秒)';
-        recordBtn.disabled = true;
-        
-        // 显示回放
-        const playback = document.getElementById('playbackSection');
-        const audioPlayback = document.getElementById('audioPlayback');
-        playback.style.display = 'block';
-        audioPlayback.src = url;
-
-        // 显示结果确认
-        document.getElementById('micTestResult').style.display = 'flex';
-
-        // 保存数据
-        this.micTestAudio = { blob, url };
-        
-        DataCollector.setMicTest({
-          passed: true,
-          audioSize: blob.size,
-        });
-
-        statusText.textContent = '录音完成！请播放确认。';
-      },
-      onError: (error) => {
-        statusText.textContent = error.message;
-        statusEl.className = 'mic-status denied';
-        this._showModal(error.message);
-      },
-      onVisualizer: (dataArray) => {
-        this._updateVisualizer('audioVisualizer', dataArray);
-      },
-    });
-
-    const granted = await this.micTestRecorder.requestPermission();
-
-    if (granted) {
-      statusEl.className = 'mic-status granted';
-      statusText.textContent = '麦克风已就绪，请点击按钮开始测试';
-      recordBtn.disabled = false;
-    } else {
-      statusEl.className = 'mic-status denied';
-      statusText.textContent = '麦克风权限未授权，无法继续实验';
+  _onStageEnter(stageId) {
+    switch (stageId) {
+      case 'mic-test': this._initMicTest(); break;
+      case 'cinema': this._enterCinema(); break;
+      case 'complete': this._handleComplete(); break;
     }
   },
 
-  _startMicTest() {
-    if (this.micTestRecorder) {
-      document.getElementById('micTestResult').style.display = 'none';
-      document.getElementById('playbackSection').style.display = 'none';
-      this.micTestRecorder.start();
+  // ==================== Stage 1: 麦克风测试（手动启停）====================
+
+  async _initMicTest() {
+    const se = document.getElementById('micStatus');
+    const st = document.getElementById('micStatusText');
+    const btn = document.getElementById('btnStartRecord');
+    se.className = 'mic-status'; st.textContent = '正在请求麦克风权限...';
+
+    this.micTestRecorder = new AudioRecorder({
+      manualMode: true,
+      maxDuration: 30000,  // 安全上限30秒
+      onTick: (sec) => {
+        document.getElementById('recordTimer').textContent =
+          `00:${String(sec).padStart(2, '0')}`;
+      },
+      onStart: () => {
+        btn.classList.add('recording');
+        btn.innerHTML = '<span class="record-dot"></span> 点击停止录音';
+        st.textContent = '正在录音，请对着麦克风说话...';
+      },
+      onStop: (blob, url, dur) => {
+        btn.classList.remove('recording');
+        btn.innerHTML = '<span class="record-dot"></span> 开始录音';
+        btn.disabled = false;
+
+        document.getElementById('playbackSection').style.display = 'block';
+        document.getElementById('audioPlayback').src = url;
+        document.getElementById('micTestResult').style.display = 'flex';
+        document.getElementById('btnDownloadMicTest').style.display = 'inline-flex';
+
+        this.micTestAudio = { blob, url };
+        DataCollector.setMicTest({ passed: true, audioSize: blob.size, duration: dur });
+        st.textContent = `录音完成（${dur}秒），请播放确认。`;
+      },
+      onError: (err) => {
+        st.textContent = err.message; se.className = 'mic-status denied';
+        this._showModal(err.message);
+      },
+      onVisualizer: (data) => this._updateVisualizer('audioVisualizer', data),
+    });
+
+    const ok = await this.micTestRecorder.requestPermission();
+    if (ok) {
+      se.className = 'mic-status granted';
+      st.textContent = '麦克风已就绪，点击按钮开始，再次点击停止';
+      btn.disabled = false;
+    } else {
+      se.className = 'mic-status denied';
+      st.textContent = '麦克风权限未授权，无法继续实验';
     }
   },
 
@@ -280,307 +196,312 @@ const Experiment = {
     document.getElementById('micTestResult').style.display = 'none';
     document.getElementById('playbackSection').style.display = 'none';
     document.getElementById('audioPlayback').src = '';
-    document.getElementById('btnStartRecord').disabled = false;
+    document.getElementById('btnDownloadMicTest').style.display = 'none';
     document.getElementById('recordTimer').textContent = '00:00';
-    document.getElementById('micStatusText').textContent = '麦克风已就绪，请点击按钮开始测试';
-    
-    if (this.micTestRecorder) {
-      this.micTestRecorder.destroy();
-    }
+    const btn = document.getElementById('btnStartRecord');
+    btn.disabled = false; btn.classList.remove('recording');
+    btn.innerHTML = '<span class="record-dot"></span> 开始录音';
+    if (this.micTestRecorder) this.micTestRecorder.destroy();
     this.micTestAudio = null;
     this._initMicTest();
   },
 
-  // ==========================================
-  // Stage 3: 视频
-  // ==========================================
-  _initVideo() {
-    const video = document.getElementById('scenarioVideo');
-    const btn = document.getElementById('btnVideoContinue');
-    
-    // 设置视频源
-    video.src = EXPERIMENT_CONFIG.scenario.videoSrc;
-    video.load();
-    
-    btn.style.display = EXPERIMENT_CONFIG.experiment.allowSkipVideo ? 'flex' : 'none';
+  // ==================== 影院模式入口 ====================
 
-    // 视频加载失败处理
+  _enterCinema() {
+    const overlay = document.getElementById('cinemaOverlay');
+    const video = document.getElementById('cinemaVideo');
+    const cfg = EXPERIMENT_CONFIG.scenario;
+
+    // 隐藏进度条
+    document.getElementById('progressBar').style.display = 'none';
+    // 隐藏主容器
+    document.getElementById('mainContainer').style.display = 'none';
+
+    // 显示影院
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => {
+      overlay.classList.add('active');
+    });
+
+    // 设置视频源
+    video.src = cfg.videoSrc;
+    video.load();
+
+    // 隐藏所有浮层
+    this._hideAllOverlays();
+
+    // 视频播放
+    video.play().catch(e => {
+      console.warn('[Cinema] 自动播放失败，显示播放按钮:', e);
+    });
+
+    // 监听视频结束 → 触发选题
+    video.addEventListener('ended', () => {
+      DataCollector.logVideoWatched();
+      this._showOverlay('choice');
+    }, { once: true });
+
+    // 视频错误处理
     video.addEventListener('error', () => {
-      console.warn('[Experiment] 视频加载失败，显示继续按钮');
-      btn.style.display = 'flex';
-      DataCollector.logVideoSkipped();
+      console.warn('[Cinema] 视频加载失败');
+      this._showOverlay('choice');  // 直接跳到选题
+    }, { once: true });
+
+    // 双击全屏（可选）
+    video.addEventListener('dblclick', () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        overlay.requestFullscreen().catch(() => {});
+      }
     });
   },
 
-  // ==========================================
-  // Stage 4: 选择题
-  // ==========================================
-  _renderChoices() {
-    const questionBlock = document.getElementById('questionBlock');
-    const questions = EXPERIMENT_CONFIG.scenario.questions;
-    
-    // 情景描述
-    document.getElementById('scenarioContext').innerHTML = 
-      `<p>${EXPERIMENT_CONFIG.scenario.description}</p>`;
+  _exitCinema() {
+    const overlay = document.getElementById('cinemaOverlay');
+    overlay.classList.remove('active');
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      document.getElementById('cinemaVideo').pause();
+      document.getElementById('progressBar').style.display = 'block';
+      document.getElementById('mainContainer').style.display = 'block';
+      this._showStage(4);
+    }, 300);
+  },
 
+  // ==================== 浮层控制 ====================
+
+  _showOverlay(name) {
+    this._hideAllOverlays();
+    const el = document.getElementById(name + 'Overlay');
+    if (el) {
+      el.style.display = 'flex';
+      requestAnimationFrame(() => el.classList.add('visible'));
+    }
+    // 进入选择阶段时渲染题目
+    if (name === 'choice') this._renderCinemaChoices();
+    // 进入语音阶段时初始化录音
+    if (name === 'voice') this._initCinemaVoice();
+  },
+
+  _hideOverlay(name) {
+    const el = document.getElementById(name + 'Overlay');
+    if (el) {
+      el.classList.remove('visible');
+      setTimeout(() => { el.style.display = 'none'; }, 400);
+    }
+  },
+
+  _hideAllOverlays() {
+    ['choice', 'voice', 'complete-transition'].forEach(name => {
+      const el = document.getElementById(name + 'Overlay');
+      if (el) { el.classList.remove('visible'); el.style.display = 'none'; }
+    });
+  },
+
+  // ==================== 影院：选择题 ====================
+
+  _renderCinemaChoices() {
+    const block = document.getElementById('cinemaQuestionBlock');
+    const questions = EXPERIMENT_CONFIG.scenario.questions;
     let html = '';
     questions.forEach((q, qi) => {
       html += `<div class="question-item">`;
       html += `<p class="question-stem">${qi + 1}. ${q.stem}</p>`;
       html += `<ul class="option-list">`;
-      
-      q.options.forEach((opt) => {
-        html += `
-          <li class="option-item">
-            <label class="option-label" data-q="${q.id}" data-v="${opt.value}">
-              <input type="radio" name="${q.id}" value="${opt.value}">
-              ${opt.label}
-            </label>
-          </li>`;
+      q.options.forEach(opt => {
+        html += `<li class="option-item">
+          <label class="option-label" data-q="${q.id}" data-v="${opt.value}">
+            <input type="radio" name="${q.id}" value="${opt.value}"> ${opt.label}
+          </label></li>`;
       });
-      
       html += `</ul></div>`;
     });
+    block.innerHTML = html;
 
-    questionBlock.innerHTML = html;
-
-    // 绑定选择事件
-    const optionLabels = questionBlock.querySelectorAll('.option-label');
-    optionLabels.forEach(label => {
+    block.querySelectorAll('.option-label').forEach(label => {
       label.addEventListener('click', function() {
-        // 取消同组其他选项的选中样式
         const name = this.querySelector('input').name;
-        questionBlock.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
+        block.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
           inp.closest('.option-label').classList.remove('selected');
         });
-        // 选中当前
         this.classList.add('selected');
         this.querySelector('input').checked = true;
-        
-        // 检查是否所有题目都已作答
-        Experiment._checkAllQuestionsAnswered();
+        Experiment._checkCinemaAllAnswered();
       });
     });
   },
 
-  _checkAllQuestionsAnswered() {
-    const questions = EXPERIMENT_CONFIG.scenario.questions;
-    let allAnswered = true;
-    
-    questions.forEach(q => {
-      const checked = document.querySelector(`input[name="${q.id}"]:checked`);
-      if (!checked) allAnswered = false;
+  _checkCinemaAllAnswered() {
+    let all = true;
+    EXPERIMENT_CONFIG.scenario.questions.forEach(q => {
+      if (!document.querySelector(`input[name="${q.id}"]:checked`)) all = false;
     });
-
-    document.getElementById('btnSubmitChoices').disabled = !allAnswered;
+    document.getElementById('btnCinemaSubmit').disabled = !all;
   },
 
-  _collectChoices() {
-    const questions = EXPERIMENT_CONFIG.scenario.questions;
+  _collectCinemaChoices() {
     const results = [];
-    
-    questions.forEach(q => {
-      const checked = document.querySelector(`input[name="${q.id}"]:checked`);
+    EXPERIMENT_CONFIG.scenario.questions.forEach(q => {
+      const chk = document.querySelector(`input[name="${q.id}"]:checked`);
       results.push({
-        questionId: q.id,
-        questionStem: q.stem,
-        selectedValue: checked ? checked.value : null,
-        selectedLabel: checked 
-          ? checked.closest('.option-label').textContent.trim() 
-          : null,
+        questionId: q.id, questionStem: q.stem,
+        selectedValue: chk?.value || null,
+        selectedLabel: chk ? chk.closest('.option-label').textContent.trim() : null,
       });
     });
-
     DataCollector.setChoices(results);
   },
 
-  // ==========================================
-  // Stage 5: 语音回答
-  // ==========================================
-  _initVoiceStage() {
-    // 设置语音问题
-    document.getElementById('voiceQuestion').innerHTML = 
-      `<p class="question-text">${EXPERIMENT_CONFIG.scenario.voiceQuestion}</p>`;
+  // ==================== 影院：语音回答（手动启停）====================
 
-    const btn = document.getElementById('btnVoiceRecord');
+  _initCinemaVoice() {
+    document.getElementById('cinemaVoiceQuestion').textContent =
+      EXPERIMENT_CONFIG.scenario.voiceQuestion;
+
+    const btn = document.getElementById('btnCinemaRecord');
     btn.disabled = false;
-    btn.innerHTML = '<span class="record-dot"></span> 开始录音 (10秒)';
     btn.classList.remove('recording');
-
-    document.getElementById('voiceTimer').textContent = '00:00';
-    document.getElementById('voicePlayback').style.display = 'none';
-    document.getElementById('voiceActions').style.display = 'none';
-    document.getElementById('voiceMicStatusText').textContent = '准备录音';
+    btn.innerHTML = '<span class="record-dot"></span> 点击开始录音';
+    document.getElementById('cinemaTimer').textContent = '00:00';
+    document.getElementById('cinemaPlayback').style.display = 'none';
+    document.getElementById('cinemaVoiceActions').style.display = 'none';
 
     this.voiceRecorder = new AudioRecorder({
-      maxDuration: EXPERIMENT_CONFIG.experiment.voiceAnswerDuration * 1000,
-      onTick: (remaining) => {
-        document.getElementById('voiceTimer').textContent = 
-          `00:${String(remaining).padStart(2, '0')}`;
+      manualMode: true,
+      maxDuration: 120000,  // 安全上限2分钟
+      onTick: (sec) => {
+        document.getElementById('cinemaTimer').textContent =
+          `00:${String(sec).padStart(2, '0')}`;
       },
       onStart: () => {
         btn.classList.add('recording');
-        btn.innerHTML = '<span class="record-dot"></span> 录音中...';
-        btn.disabled = true;
-        document.getElementById('voiceMicStatusText').textContent = '正在录音...';
+        btn.innerHTML = '<span class="record-dot"></span> 录音中，点击停止';
       },
-      onStop: (blob, url) => {
+      onStop: (blob, url, dur) => {
         btn.classList.remove('recording');
-        btn.innerHTML = '<span class="record-dot"></span> 开始录音 (10秒)';
-        btn.disabled = true;
-        
-        // 显示回放
-        document.getElementById('voicePlayback').style.display = 'block';
-        document.getElementById('voicePlaybackAudio').src = url;
+        btn.innerHTML = '<span class="record-dot"></span> 点击开始录音';
+        btn.disabled = false;
 
-        // 显示操作按钮
-        document.getElementById('voiceActions').style.display = 'flex';
-        document.getElementById('voiceMicStatusText').textContent = '录音完成，请确认或重新录制';
+        document.getElementById('cinemaPlayback').style.display = 'block';
+        document.getElementById('cinemaPlaybackAudio').src = url;
+        document.getElementById('cinemaVoiceActions').style.display = 'flex';
 
-        this.voiceAudio = { blob, url };
+        this.voiceAudio = { blob, url, duration: dur };
       },
-      onError: (error) => {
-        document.getElementById('voiceMicStatusText').textContent = error.message;
-        this._showModal(error.message);
-      },
-      onVisualizer: (dataArray) => {
-        this._updateVisualizer('voiceVisualizer', dataArray);
-      },
+      onError: (err) => this._showModal(err.message),
+      onVisualizer: (data) => this._updateVisualizer('cinemaVisualizer', data),
     });
 
-    // 复用已有麦克风权限
-    this.voiceRecorder.stream = this.micTestRecorder?.stream || null;
-    this.voiceRecorder.micPermission = 'granted';
-    this.voiceRecorder.isSupported = true;
-  },
-
-  _startVoiceRecord() {
-    // 如果没有 stream，先请求权限
-    if (!this.voiceRecorder.stream) {
-      this.voiceRecorder.requestPermission().then(granted => {
-        if (granted) this.voiceRecorder.start();
-      });
-    } else {
-      this.voiceRecorder.start();
+    // 复用已有的麦克风 stream
+    if (this.micTestRecorder?.stream) {
+      this.voiceRecorder.stream = this.micTestRecorder.stream;
+      this.voiceRecorder.micPermission = 'granted';
+      this.voiceRecorder.isSupported = true;
     }
   },
 
-  _resetVoiceRecord() {
-    document.getElementById('voicePlayback').style.display = 'none';
-    document.getElementById('voiceActions').style.display = 'none';
-    document.getElementById('voicePlaybackAudio').src = '';
-    
-    const btn = document.getElementById('btnVoiceRecord');
-    btn.disabled = false;
-    btn.classList.remove('recording');
-    btn.innerHTML = '<span class="record-dot"></span> 开始录音 (10秒)';
-    document.getElementById('voiceTimer').textContent = '00:00';
-    document.getElementById('voiceMicStatusText').textContent = '准备录音';
-
-    if (this.voiceRecorder) {
-      this.voiceRecorder.destroy();
-    }
+  _resetCinemaVoice() {
+    document.getElementById('cinemaPlayback').style.display = 'none';
+    document.getElementById('cinemaVoiceActions').style.display = 'none';
+    document.getElementById('cinemaPlaybackAudio').src = '';
+    const btn = document.getElementById('btnCinemaRecord');
+    btn.disabled = false; btn.classList.remove('recording');
+    btn.innerHTML = '<span class="record-dot"></span> 点击开始录音';
+    document.getElementById('cinemaTimer').textContent = '00:00';
+    if (this.voiceRecorder) this.voiceRecorder.destroy();
     this.voiceAudio = null;
-    this._initVoiceStage();
+    this._initCinemaVoice();
   },
 
-  // ==========================================
-  // Stage 6: 完成页
-  // ==========================================
+  _skipCinemaCurrent() {
+    const choiceV = document.getElementById('choiceOverlay');
+    const voiceV = document.getElementById('voiceOverlay');
+    if (choiceV.style.display !== 'none' && choiceV.classList.contains('visible')) {
+      this._hideOverlay('choice'); this._showOverlay('voice');
+    } else if (voiceV.style.display !== 'none' && voiceV.classList.contains('visible')) {
+      this._hideOverlay('voice');
+      this._showOverlay('complete-transition');
+      setTimeout(() => this._exitCinema(), 800);
+    }
+  },
+
+  // ==================== Stage 4: 完成页 ====================
+
   async _handleComplete() {
-    // 保存语音数据
     if (this.voiceAudio) {
       const base64 = await this._blobToBase64(this.voiceAudio.blob);
       DataCollector.setVoiceAnswer({
-        audioBase64: base64,
-        audioSize: this.voiceAudio.blob.size,
-        duration: EXPERIMENT_CONFIG.experiment.voiceAnswerDuration,
+        audioBase64: base64, audioSize: this.voiceAudio.blob.size,
+        duration: this.voiceAudio.duration || 0,
       });
     }
 
-    const statusText = document.getElementById('uploadStatusText');
-    const spinner = document.getElementById('uploadSpinner');
-    const resultEl = document.getElementById('uploadResult');
-    const downloadEl = document.getElementById('dataDownload');
+    const st = document.getElementById('uploadStatusText');
+    const sp = document.getElementById('uploadSpinner');
+    const re = document.getElementById('uploadResult');
+    const dd = document.getElementById('dataDownload');
 
-    // 上传数据
-    statusText.textContent = '正在上传数据到服务器...';
-    spinner.style.display = 'block';
-
+    st.textContent = '正在上传数据到服务器...'; sp.style.display = 'block';
     const result = await DataCollector.upload();
-
-    spinner.style.display = 'none';
-    resultEl.style.display = 'block';
+    sp.style.display = 'none'; re.style.display = 'block';
 
     if (result.success) {
-      resultEl.className = 'upload-result success';
-      resultEl.innerHTML = '<p>✅ 数据上传成功！感谢您的参与。</p>';
-      document.getElementById('uploadStatusText').textContent = '上传完成';
+      re.className = 'upload-result success';
+      re.innerHTML = '<p>✅ 数据上传成功！感谢您的参与。</p>';
+      st.textContent = '上传完成';
     } else if (result.local) {
-      resultEl.className = 'upload-result local';
-      resultEl.innerHTML = '<p>⚠️ 云端未配置，数据仅保存在本地。请点击下方按钮下载数据。</p>';
-      document.getElementById('uploadStatusText').textContent = '使用本地存储模式';
-      downloadEl.style.display = 'block';
+      re.className = 'upload-result local';
+      re.innerHTML = '<p>⚠️ 云端未配置，数据仅保存在本地。</p>';
+      st.textContent = '本地存储模式';
     } else {
-      resultEl.className = 'upload-result error';
-      resultEl.innerHTML = `<p>❌ 上传失败：${result.error || '未知错误'}</p>
-        <p>数据已保存在本地，请点击下方按钮下载。</p>`;
-      document.getElementById('uploadStatusText').textContent = '上传失败';
-      downloadEl.style.display = 'block';
+      re.className = 'upload-result error';
+      re.innerHTML = `<p>❌ 上传失败：${result.error || '未知错误'}</p>`;
+      st.textContent = '上传失败';
     }
 
-    // 总是显示下载按钮作为备份
-    if (EXPERIMENT_CONFIG.experiment.localStorageBackup) {
-      downloadEl.style.display = 'block';
-    }
+    // 显示下载按钮
+    dd.style.display = 'block';
+    document.getElementById('btnDownloadVoiceAudio').style.display =
+      this.voiceAudio?.blob ? 'inline-flex' : 'none';
+    document.getElementById('btnDownloadMicAudio').style.display =
+      this.micTestAudio?.blob ? 'inline-flex' : 'none';
   },
 
-  // ==========================================
-  // 工具方法
-  // ==========================================
+  // ==================== 工具 ====================
 
-  /**
-   * 更新音频可视化器
-   * @param {string} containerId
-   * @param {Uint8Array} dataArray
-   */
   _updateVisualizer(containerId, dataArray) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const bars = container.querySelectorAll('.visualizer-bar');
-    if (bars.length === 0) return;
-
-    // 采样 dataArray 以匹配 bar 数量
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    const bars = c.querySelectorAll('.visualizer-bar');
+    if (!bars.length) return;
     const step = Math.floor(dataArray.length / bars.length);
     bars.forEach((bar, i) => {
-      const value = dataArray[i * step] || 0;
-      // 映射 0-255 到 0-100%
-      const height = Math.max(2, (value / 255) * 100);
-      bar.style.height = `${height}%`;
+      bar.style.height = `${Math.max(2, (dataArray[i * step] || 0) / 255 * 100)}%`;
     });
   },
 
-  /**
-   * Blob 转 Base64
-   * @param {Blob} blob
-   * @returns {Promise<string>}
-   */
   _blobToBase64(blob) {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
     });
   },
 
-  /**
-   * 显示模态弹窗
-   * @param {string} message - HTML 内容
-   */
-  _showModal(message) {
-    document.getElementById('modalBody').innerHTML = message;
+  _downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  _showModal(msg) {
+    document.getElementById('modalBody').innerHTML = msg;
     document.getElementById('modalOverlay').style.display = 'flex';
   },
 };

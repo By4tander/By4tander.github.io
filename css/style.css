@@ -786,6 +786,238 @@ body {
   display: none;
 }
 
+/* ============================================================
+   全屏沉浸式影院模式
+   ============================================================ */
+
+/* 小按钮 */
+.btn-sm {
+  padding: 6px 14px;
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+/* 影院覆盖层 - 全屏 */
+.cinema-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: #000;
+  z-index: 1500;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.cinema-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 影院全屏视频 */
+.cinema-overlay video {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;       /* 保持比例，不裁剪 */
+  background: #000;
+}
+
+/* 影院淡入过渡层（视频左右黑边处） */
+.cinema-fade {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.3) 100%);
+}
+
+/* 影院 UI 浮层容器 */
+.cinema-ui {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+.cinema-ui.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* 浮层卡片 */
+.overlay-card {
+  background: rgba(20, 30, 50, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 28px 32px;
+  max-width: 520px;
+  width: 90%;
+  color: #E8ECF1;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.overlay-card-sm {
+  max-width: 360px;
+  padding: 24px 28px;
+}
+
+.overlay-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.overlay-step {
+  font-size: 20px;
+  font-weight: 600;
+  color: #A8C8FF;
+}
+
+/* 影院内的问题文字 */
+.cinema-ui .question-text {
+  font-size: 18px;
+  text-align: center;
+  margin-bottom: 16px;
+  color: #E8ECF1;
+}
+
+/* 影院内的选择题（暗色主题适配） */
+.cinema-ui .question-stem {
+  color: #D0D8E8;
+  font-weight: 500;
+}
+
+.cinema-ui .option-label {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #D0D8E8;
+  border-radius: 8px;
+}
+
+.cinema-ui .option-label:hover {
+  background: rgba(74, 111, 165, 0.25);
+  border-color: rgba(74, 111, 165, 0.6);
+}
+
+.cinema-ui .option-label.selected {
+  background: rgba(74, 111, 165, 0.35);
+  border-color: #6B8FC5;
+  color: #FFF;
+}
+
+.cinema-ui .option-label input[type="radio"] {
+  accent-color: #6B8FC5;
+}
+
+/* 影院内的视觉器 */
+.cinema-ui .visualizer-bar {
+  background: linear-gradient(to top, #6B8FC5, #A8C8FF);
+}
+
+/* 影院内的录音按钮 */
+.cinema-ui .btn-record {
+  background: rgba(244, 67, 54, 0.9);
+}
+
+.cinema-ui .btn-record:hover:not(:disabled) {
+  background: #D32F2F;
+}
+
+/* 影院内的回放区域 */
+.cinema-ui .playback-section {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.cinema-ui .playback-label {
+  color: #90A4AE;
+  font-size: 13px;
+}
+
+.cinema-ui .playback-section audio {
+  max-width: 300px;
+}
+
+/* 影院内的语音操作按钮 */
+.cinema-ui .voice-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* 影院跳过按钮 */
+.cinema-skip {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  background: rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cinema-skip:hover {
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  border-color: rgba(255,255,255,0.4);
+}
+
+/* 影院录制计时器 */
+.cinema-ui .record-timer {
+  color: #A0B0C0;
+}
+
+/* 影院按钮通用覆盖 */
+.cinema-ui .btn {
+  font-size: 15px;
+}
+
+/* 响应式 - 影院 */
+@media (max-width: 600px) {
+  .overlay-card {
+    padding: 20px 18px;
+    width: 94%;
+    max-height: 80vh;
+  }
+  
+  .overlay-step {
+    font-size: 17px;
+  }
+  
+  .cinema-ui .question-text {
+    font-size: 16px;
+  }
+  
+  .cinema-ui .option-label {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
+
+/* 移动端：视频 object-fit cover 效果更好 */
+@media (max-aspect-ratio: 9/16) {
+  .cinema-overlay video {
+    object-fit: cover;
+  }
+}
+
 /* -------- 打印样式 -------- */
 @media print {
   body { background: white; }
