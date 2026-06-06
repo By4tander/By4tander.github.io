@@ -1,0 +1,144 @@
+/**
+ * ============================================================
+ * 实验配置 - 后端接口和实验参数
+ * ============================================================
+ * 使用前请根据您的实际部署修改以下配置。
+ * ============================================================
+ */
+
+const EXPERIMENT_CONFIG = {
+  // ==========================================
+  // 一、后端存储配置
+  // ==========================================
+  backend: {
+    /**
+     * 后端类型：'aliyun' | 'leancloud' | 'supabase' | 'local'
+     * - aliyun: 阿里云 API Gateway + Function Compute
+     * - leancloud: LeanCloud 云服务
+     * - supabase: Supabase 开源云服务
+     * - local: 仅本地下载（无需后端）
+     */
+    type: 'aliyun',
+
+    // ---- 阿里云配置 ----
+    aliyun: {
+      /**
+       * ★★★ 需要配置 ★★★
+       * 阿里云 API Gateway 端点地址
+       * 格式：https://your-api-id.apigateway.aliyuncs.com/your-stage/resource
+       * 
+       * 后端收到数据后的处理逻辑请参考 backend/aliyun-fc-template.js
+       */
+      apiEndpoint: 'https://YOUR_API_GATEWAY_ID.apigateway.aliyuncs.com/prod/experiment/upload',
+      
+      // API 鉴权（如使用阿里云APP签名认证）
+      appKey: 'YOUR_APP_KEY',
+      appSecret: 'YOUR_APP_SECRET',
+      
+      // OSS 配置（用于存储音频文件）
+      oss: {
+        region: 'oss-cn-hangzhou',
+        bucket: 'your-experiment-bucket',
+        endpoint: 'https://your-experiment-bucket.oss-cn-hangzhou.aliyuncs.com',
+        accessKeyId: 'YOUR_OSS_ACCESS_KEY_ID',
+        accessKeySecret: 'YOUR_OSS_ACCESS_KEY_SECRET',
+      },
+    },
+
+    // ---- LeanCloud 配置 ----
+    leancloud: {
+      appId: 'YOUR_LEANCLOUD_APP_ID',
+      appKey: 'YOUR_LEANCLOUD_APP_KEY',
+      serverURL: 'https://YOUR_APP_ID.api.lncldglobal.com',
+    },
+
+    // ---- Supabase 配置 ----
+    supabase: {
+      url: 'https://YOUR_PROJECT_ID.supabase.co',
+      anonKey: 'YOUR_SUPABASE_ANON_KEY',
+      bucketName: 'audio-recordings',
+    },
+  },
+
+  // ==========================================
+  // 二、实验参数
+  // ==========================================
+  experiment: {
+    // 实验名称
+    name: '语言交互行为实验',
+    
+    // 实验版本号
+    version: '1.0.0',
+    
+    // 麦克风测试录音时长（秒）
+    micTestDuration: 5,
+    
+    // 语音回答录音时长（秒）
+    voiceAnswerDuration: 10,
+    
+    // 音频格式
+    audioMimeType: 'audio/webm;codecs=opus',
+    
+    // 是否允许被试跳过视频
+    allowSkipVideo: false,
+    
+    // 是否在本地存储备份数据
+    localStorageBackup: true,
+  },
+
+  // ==========================================
+  // 三、情景问题配置 ★★★ 预留 ★★★
+  // ==========================================
+  scenario: {
+    // 情景描述（显示在选择页顶部）
+    description: '根据刚才观看的视频情景，请回答以下问题：',
+    
+    // 视频文件路径
+    videoSrc: 'assets/video/scenario.mp4',
+    
+    // 选择题列表（可动态修改）
+    questions: [
+      {
+        id: 'q1',
+        stem: '在视频情景中，您的第一反应是？',
+        options: [
+          { value: 'A', label: '选项A：立即采取行动' },
+          { value: 'B', label: '选项B：先观察情况' },
+          { value: 'C', label: '选项C：寻求他人帮助' },
+          { value: 'D', label: '选项D：忽视当前情况' },
+        ],
+      },
+      {
+        id: 'q2',
+        stem: '您认为视频中的角色做出的决定是否合理？',
+        options: [
+          { value: 'A', label: '选项A：非常合理' },
+          { value: 'B', label: '选项B：比较合理' },
+          { value: 'C', label: '选项C：不太合理' },
+          { value: 'D', label: '选项D：完全不合理' },
+        ],
+      },
+    ],
+
+    // 语音回答问题
+    voiceQuestion: '请用语音回答：在刚才的情景中，您做出选择的主要原因是什么？',
+  },
+
+  // ==========================================
+  // 四、UI 文本（可定制）
+  // ==========================================
+  ui: {
+    consentTitle: '🎓 语言交互行为实验',
+    micTestTitle: '🎤 麦克风测试',
+    subjectTitle: '📋 被试信息',
+    videoTitle: '🎬 情景视频',
+    choiceTitle: '📝 情景问题',
+    voiceTitle: '🗣️ 语音回答',
+    completeTitle: '✅ 实验完成',
+  },
+};
+
+// 导出（如果使用模块化加载）
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = EXPERIMENT_CONFIG;
+}
