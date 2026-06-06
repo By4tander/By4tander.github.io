@@ -516,11 +516,26 @@ const Experiment = {
   _skipCinemaCurrent() {
     const choiceV = document.getElementById('choiceOverlay');
     const voiceV = document.getElementById('voiceOverlay');
-    if (choiceV.style.display !== 'none' && choiceV.classList.contains('visible')) {
-      this._hideOverlay('choice'); this._showOverlay('voice');
-    } else if (voiceV.style.display !== 'none' && voiceV.classList.contains('visible')) {
+    const video = document.getElementById('cinemaVideo');
+    
+    // 判断当前状态
+    const choiceVisible = choiceV.style.display !== 'none' && choiceV.classList.contains('visible');
+    const voiceVisible = voiceV.style.display !== 'none' && voiceV.classList.contains('visible');
+    
+    if (voiceVisible) {
+      // 语音阶段 → 直接进入下一视频或完成
+      if (this.voiceRecorder?.isRecording) this.voiceRecorder.stop();
       this._hideOverlay('voice');
       this._playNextVideo();
+    } else if (choiceVisible) {
+      // 选题阶段 → 跳到语音
+      this._hideOverlay('choice');
+      this._showOverlay('voice');
+    } else {
+      // 视频播放中（无浮层）→ 快进到视频末尾触发 ended 事件
+      if (video.duration && isFinite(video.duration)) {
+        video.currentTime = video.duration - 0.1;
+      }
     }
   },
 

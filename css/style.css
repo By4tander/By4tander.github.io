@@ -957,33 +957,34 @@ body {
   flex-wrap: wrap;
 }
 
-/* 影院跳过按钮 */
+/* 影院跳过按钮（右上角）*/
 .cinema-skip {
   position: absolute;
   top: 16px;
   right: 16px;
   z-index: 20;
   background: rgba(0,0,0,0.5);
-  color: rgba(255,255,255,0.6);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 6px;
-  padding: 6px 14px;
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 8px 18px;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
+  font-family: inherit;
 }
 
 .cinema-skip:hover {
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.75);
   color: #fff;
-  border-color: rgba(255,255,255,0.4);
+  border-color: rgba(255,255,255,0.5);
 }
 
-/* 视频播放控制栏（右上角）*/
+/* 视频播放控制栏（左上角）*/
 .cinema-controls {
   position: absolute;
   top: 16px;
-  right: 16px;
+  left: 16px;
   z-index: 20;
   display: flex;
   gap: 6px;
