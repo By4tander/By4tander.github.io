@@ -21,6 +21,10 @@ const Experiment = {
   _videoSequence: [],         // 视频键名序列
   _videoPlaying: true,        // 视频是否在播放
   _choicesSubmitted: false,   // 选题是否已提交
+  _currentQuestionIndex: 0,
+  _previewOptionIndex: 0,
+  _choiceAnswers: {},
+  _isPreviewingOptions: false,
 
   init() {
     DataCollector.reset();
@@ -83,10 +87,7 @@ const Experiment = {
 
     // ---- 影院：选题提交 ----
     document.getElementById('btnCinemaSubmit').addEventListener('click', () => {
-      this._collectCinemaChoices();
-      this._choicesSubmitted = true;
-      this._hideOverlay('choice');
-      this._showOverlay('voice');
+      this._advanceCinemaQuestion();
     });
 
     // ---- 影院：语音录制 ----
@@ -246,6 +247,10 @@ const Experiment = {
     this._videoSequence = cfg.videoSequence || ['scenario1'];
     this._videoPlaying = true;
     this._choicesSubmitted = false;
+    this._currentQuestionIndex = 0;
+    this._previewOptionIndex = 0;
+    this._choiceAnswers = {};
+    this._isPreviewingOptions = false;
 
     // 隐藏进度条和主容器
     document.getElementById('progressBar').style.display = 'none';
@@ -391,7 +396,7 @@ const Experiment = {
     const el = document.getElementById(name + 'Overlay');
     if (el) {
       el.classList.remove('visible');
-      setTimeout(() => { el.style.display = 'none'; }, 400);
+      setTimeout(() => { el.style.display = 'none'; }, 3100);
     }
   },
 
@@ -407,52 +412,199 @@ const Experiment = {
   _renderCinemaChoices() {
     const block = document.getElementById('cinemaQuestionBlock');
     const questions = EXPERIMENT_CONFIG.scenario.questions;
-    let html = '';
-    questions.forEach((q, qi) => {
-      html += `<div class="question-item">`;
-      html += `<p class="question-stem">${qi + 1}. ${q.stem}</p>`;
-      html += `<ul class="option-list">`;
-      q.options.forEach(opt => {
-        html += `<li class="option-item">
-          <label class="option-label" data-q="${q.id}" data-v="${opt.value}">
-            <input type="radio" name="${q.id}" value="${opt.value}"> ${opt.label}
-          </label></li>`;
-      });
-      html += `</ul></div>`;
-    });
-    block.innerHTML = html;
+    const q = questions[this._currentQuestionIndex];
+    if (!q) {
+      this._collectCinemaChoices();
+      this._choicesSubmitted = true;
+      this._hideOverlay('choice');
+      this._showOverlay('voice');
+      return;
+    }
 
-    block.querySelectorAll('.option-label').forEach(label => {
-      label.addEventListener('click', function() {
-        const name = this.querySelector('input').name;
-        block.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
-          inp.closest('.option-label').classList.remove('selected');
-        });
-        this.classList.add('selected');
-        this.querySelector('input').checked = true;
-        Experiment._checkCinemaAllAnswered();
-      });
+    const selected = this._choiceAnswers[q.id]?.selectedValue || '';
+    const total = questions.length;
+    block.innerHTML = `
+      <div class="immersive-question-shell">
+        <div class="question-progress">问题 ${this._currentQuestionIndex + 1}/${total}</div>
+        <p class="immersive-question-stem">${q.stem}</p>
+        <div class="option-preview-status" id="optionPreviewStatus">正在播放选项视频...</div>
+        <div class="immersive-option-grid" id="immersiveOptionGrid"></div>
+      </div>
+    `;
+
+    document.getElementById('btnCinemaSubmit').disabled = !selected;
+    document.getElementById('btnCinemaSubmit').textContent =
+      this._currentQuestionIndex === total - 1 ? '确认选择并进入语音回答' : '确认选择并进入下一题';
+
+    this._previewOptionIndex = 0;
+    this._isPreviewingOptions = true;
+    this._renderOptionCards(q);
+    this._playCurrentOptionPreview();
+  },
+
+  _renderOptionCards(question) {
+    const grid = document.getElementById('immersiveOptionGrid');
+    if (!grid) return;
+    const selected = this._choiceAnswers[question.id]?.selectedValue || '';
+    grid.innerHTML = '';
+
+    question.options.forEach((opt, index) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'immersive-option-card';
+      card.dataset.q = question.id;
+      card.dataset.v = opt.value;
+      card.disabled = this._isPreviewingOptions;
+      if (selected === opt.value) card.classList.add('selected');
+      if (index >= this._previewOptionIndex) card.classList.add('pending');
+
+      const media = opt.video
+        ? `<video muted playsinline preload="metadata" src="${opt.video}"></video>`
+        : `<div class="option-video-missing">无视频</div>`;
+      card.innerHTML = `
+        <div class="option-media">${media}</div>
+        <div class="option-caption">
+          <span class="option-letter">${opt.value}</span>
+          <span class="option-label-text">${opt.label}</span>
+        </div>
+      `;
+      card.addEventListener('click', () => this._selectCinemaOption(question, opt));
+      grid.appendChild(card);
     });
   },
 
-  _checkCinemaAllAnswered() {
-    let all = true;
-    EXPERIMENT_CONFIG.scenario.questions.forEach(q => {
-      if (!document.querySelector(`input[name="${q.id}"]:checked`)) all = false;
+  _playCurrentOptionPreview() {
+    const questions = EXPERIMENT_CONFIG.scenario.questions;
+    const question = questions[this._currentQuestionIndex];
+    const option = question?.options[this._previewOptionIndex];
+    const video = document.getElementById('cinemaVideo');
+    const status = document.getElementById('optionPreviewStatus');
+    const cards = document.querySelectorAll('.immersive-option-card');
+    const choiceOverlay = document.getElementById('choiceOverlay');
+
+    if (!question || !option) {
+      this._finishOptionPreviews(question);
+      return;
+    }
+
+    choiceOverlay?.classList.add('preview-playing');
+
+    cards.forEach((card, index) => {
+      card.classList.toggle('previewing', index === this._previewOptionIndex);
+      card.classList.toggle('pending', index >= this._previewOptionIndex);
     });
-    document.getElementById('btnCinemaSubmit').disabled = !all;
+
+    if (status) status.textContent = `正在全屏播放选项 ${option.value}，请沉浸理解该选择`;
+    video.classList.add('option-preview-video');
+    video.src = option.video || '';
+    video.load();
+    video.play().catch(e => {
+      console.warn('[Cinema] 选项视频自动播放失败:', e);
+      this._finishOneOptionPreview();
+    });
+
+    video.onended = () => this._finishOneOptionPreview();
+    video.onerror = () => this._finishOneOptionPreview();
+  },
+
+  _finishOneOptionPreview() {
+    const question = EXPERIMENT_CONFIG.scenario.questions[this._currentQuestionIndex];
+    const option = question?.options[this._previewOptionIndex];
+    const card = document.querySelector(`.immersive-option-card[data-v="${option?.value}"]`);
+    const thumb = card?.querySelector('video');
+    const mainVideo = document.getElementById('cinemaVideo');
+    const choiceOverlay = document.getElementById('choiceOverlay');
+
+    choiceOverlay?.classList.remove('preview-playing');
+
+    DataCollector.logEvent('option_video_watched', {
+      questionId: question?.id,
+      optionValue: option?.value,
+      video: option?.video || null,
+    });
+
+    if (thumb && option?.video) {
+      thumb.src = option.video;
+      thumb.currentTime = 0;
+    }
+    if (card) {
+      card.classList.remove('pending', 'previewing');
+      card.classList.add('ready', 'arrived');
+    }
+
+    this._previewOptionIndex += 1;
+    if (question && this._previewOptionIndex < question.options.length) {
+      window.setTimeout(() => this._playCurrentOptionPreview(), 850);
+    } else {
+      mainVideo.pause();
+      mainVideo.onended = null;
+      mainVideo.onerror = null;
+      mainVideo.removeAttribute('src');
+      mainVideo.load();
+      this._finishOptionPreviews(question);
+    }
+  },
+
+  _finishOptionPreviews(question) {
+    this._isPreviewingOptions = false;
+    document.getElementById('choiceOverlay')?.classList.remove('preview-playing');
+    document.getElementById('cinemaVideo').classList.remove('option-preview-video');
+    const status = document.getElementById('optionPreviewStatus');
+    if (status) status.textContent = '四个选项视频已播放完毕，请选择最符合你的选项';
+
+    document.querySelectorAll('.immersive-option-card').forEach(card => {
+      card.disabled = false;
+      card.classList.remove('pending', 'previewing');
+      card.classList.add('ready');
+    });
+
+    const selected = question && this._choiceAnswers[question.id]?.selectedValue;
+    document.getElementById('btnCinemaSubmit').disabled = !selected;
+  },
+
+  _selectCinemaOption(question, option) {
+    if (this._isPreviewingOptions) return;
+    this._choiceAnswers[question.id] = {
+      questionId: question.id,
+      questionStem: question.stem,
+      selectedValue: option.value,
+      selectedLabel: option.label,
+      selectedVideo: option.video || null,
+    };
+
+    document.querySelectorAll('.immersive-option-card').forEach(card => {
+      card.classList.toggle('selected', card.dataset.v === option.value);
+    });
+    document.getElementById('btnCinemaSubmit').disabled = false;
+  },
+
+  _advanceCinemaQuestion() {
+    const questions = EXPERIMENT_CONFIG.scenario.questions;
+    const current = questions[this._currentQuestionIndex];
+    if (!current || !this._choiceAnswers[current.id]) return;
+
+    if (this._currentQuestionIndex < questions.length - 1) {
+      this._currentQuestionIndex += 1;
+      this._renderCinemaChoices();
+      return;
+    }
+
+    this._collectCinemaChoices();
+    this._choicesSubmitted = true;
+    this._hideOverlay('choice');
+    this._showOverlay('voice');
   },
 
   _collectCinemaChoices() {
-    const results = [];
-    EXPERIMENT_CONFIG.scenario.questions.forEach(q => {
-      const chk = document.querySelector(`input[name="${q.id}"]:checked`);
-      results.push({
-        questionId: q.id, questionStem: q.stem,
-        selectedValue: chk?.value || null,
-        selectedLabel: chk ? chk.closest('.option-label').textContent.trim() : null,
-      });
-    });
+    const results = EXPERIMENT_CONFIG.scenario.questions.map(q => (
+      this._choiceAnswers[q.id] || {
+        questionId: q.id,
+        questionStem: q.stem,
+        selectedValue: null,
+        selectedLabel: null,
+        selectedVideo: null,
+      }
+    ));
     DataCollector.setChoices(results);
   },
 

@@ -802,7 +802,7 @@ body {
   position: fixed;
   top: 0; left: 0;
   width: 100vw; height: 100vh;
-  background: #000;
+  background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
   z-index: 1500;
   opacity: 0;
   transition: opacity 0.4s ease;
@@ -840,8 +840,8 @@ body {
   justify-content: center;
   z-index: 10;
   opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  transform: translateY(30px);
+  transition: opacity 3s ease, transform 3s ease;
   pointer-events: none;
 }
 
@@ -853,16 +853,16 @@ body {
 
 /* 浮层卡片 */
 .overlay-card {
-  background: rgba(20, 30, 50, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(18, 26, 42, 0.50);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
   padding: 28px 32px;
   max-width: 520px;
   width: 90%;
   color: #E8ECF1;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   max-height: 85vh;
   overflow-y: auto;
 }
@@ -875,6 +875,14 @@ body {
 .overlay-header {
   text-align: center;
   margin-bottom: 16px;
+}
+
+.overlay-card .overlay-step,
+.overlay-card .question-text,
+.overlay-card .question-stem,
+.overlay-card label,
+.overlay-card p {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
 
 .overlay-step {
@@ -1075,6 +1083,283 @@ body {
 @media (max-aspect-ratio: 9/16) {
   .cinema-overlay video {
     object-fit: cover;
+  }
+}
+
+/* -------- 沉浸式视频选项题 -------- */
+.choice-overlay {
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.12) 34%, rgba(0, 0, 0, 0.78));
+}
+
+.choice-overlay.preview-playing {
+  background: transparent;
+  pointer-events: none;
+}
+
+.choice-overlay .overlay-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  padding: 24px clamp(16px, 4vw, 48px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.choice-overlay.preview-playing .overlay-card {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+}
+
+.choice-overlay .overlay-header {
+  margin: 0;
+  text-align: left;
+  z-index: 2;
+}
+
+.choice-overlay .overlay-step {
+  display: inline-flex;
+  padding: 7px 12px;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.38);
+  color: #fff;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.choice-overlay .question-block {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.immersive-question-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.question-progress {
+  width: fit-content;
+  margin-top: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.82);
+  font-size: 13px;
+}
+
+.immersive-question-stem {
+  max-width: 980px;
+  margin: 12px auto 0;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: clamp(20px, 3.2vw, 34px);
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.65);
+}
+
+.option-preview-status {
+  margin: 10px auto 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.45);
+  color: rgba(255,255,255,0.84);
+  font-size: 14px;
+}
+
+.immersive-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: clamp(14px, 2.4vw, 24px);
+  width: min(1120px, 100%);
+  flex: 1;
+  min-height: 0;
+  margin: clamp(12px, 2vh, 24px) auto 0;
+  padding: clamp(12px, 2vh, 22px) 0 82px;
+  z-index: 2;
+}
+
+.immersive-option-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 8px;
+  background: rgba(10, 14, 20, 0.72);
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  opacity: 0.96;
+  transform: translateY(0);
+  transition: transform 0.35s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+  font-family: inherit;
+  text-align: left;
+}
+
+.immersive-option-card.pending {
+  opacity: 0;
+  transform: translateY(22px) scale(0.96);
+  pointer-events: none;
+}
+
+.immersive-option-card.previewing {
+  border-color: rgba(255,255,255,0.7);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.22), 0 14px 40px rgba(0,0,0,0.45);
+}
+
+.immersive-option-card.arrived {
+  animation: optionArrive 0.42s ease both;
+}
+
+.immersive-option-card.ready:hover:not(:disabled),
+.immersive-option-card.selected {
+  border-color: #8EC5FF;
+  box-shadow: 0 0 0 3px rgba(142,197,255,0.28), 0 16px 44px rgba(0,0,0,0.52);
+  transform: translateY(-4px);
+}
+
+.immersive-option-card:disabled {
+  cursor: default;
+}
+
+.option-media {
+  flex: 1;
+  min-height: 0;
+  background: #05070a;
+}
+
+.option-media video {
+  position: static;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.option-video-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+}
+
+.option-caption {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 62px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+}
+
+.option-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.16);
+  font-weight: 700;
+}
+
+.option-label-text {
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.choice-overlay #btnCinemaSubmit {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  width: min(520px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  z-index: 3;
+  margin: 0;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.42);
+}
+
+.cinema-overlay #cinemaVideo.option-preview-video {
+  object-fit: contain;
+  filter: none;
+}
+
+@keyframes optionArrive {
+  from {
+    opacity: 0.1;
+    transform: translateY(-20px) scale(1.04);
+  }
+  to {
+    opacity: 0.96;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .immersive-option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding-bottom: 84px;
+  }
+
+  .immersive-question-stem {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 520px) {
+  .choice-overlay .overlay-card {
+    padding: 16px 10px;
+  }
+
+  .immersive-option-grid {
+    gap: 8px;
+  }
+
+  .immersive-question-stem {
+    font-size: 18px;
+  }
+
+  .option-caption {
+    grid-template-columns: 28px 1fr;
+    min-height: 58px;
+    padding: 8px;
+  }
+
+  .option-letter {
+    width: 26px;
+    height: 26px;
+  }
+
+  .option-label-text {
+    font-size: 13px;
   }
 }
 
