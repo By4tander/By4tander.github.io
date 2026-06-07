@@ -368,7 +368,10 @@ const Experiment = {
 
   _seekVideo(seconds) {
     const video = document.getElementById('cinemaVideo');
-    video.currentTime = Math.max(0, Math.min(video.duration || Infinity, video.currentTime + seconds));
+    // 确保视频时长有效再跳转，避免 currentTime 变成 NaN 导致重播
+    if (!video.duration || !isFinite(video.duration)) return;
+    const target = video.currentTime + seconds;
+    video.currentTime = Math.max(0, Math.min(video.duration, target));
   },
 
   // ==================== 浮层控制 ====================
@@ -518,23 +521,26 @@ const Experiment = {
     const voiceV = document.getElementById('voiceOverlay');
     const video = document.getElementById('cinemaVideo');
     
-    // 判断当前状态
     const choiceVisible = choiceV.style.display !== 'none' && choiceV.classList.contains('visible');
     const voiceVisible = voiceV.style.display !== 'none' && voiceV.classList.contains('visible');
     
     if (voiceVisible) {
-      // 语音阶段 → 直接进入下一视频或完成
       if (this.voiceRecorder?.isRecording) this.voiceRecorder.stop();
       this._hideOverlay('voice');
       this._playNextVideo();
     } else if (choiceVisible) {
-      // 选题阶段 → 跳到语音
       this._hideOverlay('choice');
       this._showOverlay('voice');
     } else {
-      // 视频播放中（无浮层）→ 快进到视频末尾触发 ended 事件
-      if (video.duration && isFinite(video.duration)) {
-        video.currentTime = video.duration - 0.1;
+      // 视频播放中 → 直接触发 video.onended 逻辑（不依赖 currentTime 跳转）
+      video.pause();
+      this._videoPlaying = false;
+      DataCollector.logVideoWatched();
+      if (this._videoIndex === 0) {
+        this._showOverlay('choice');
+      } else {
+        this._showOverlay('complete-transition');
+        setTimeout(() => this._exitCinema(), 1500);
       }
     }
   },
