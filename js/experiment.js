@@ -25,6 +25,7 @@ const Experiment = {
   _previewOptionIndex: 0,
   _choiceAnswers: {},
   _isPreviewingOptions: false,
+  _questionAudioTimeout: null,
 
   init() {
     DataCollector.reset();
@@ -440,7 +441,7 @@ const Experiment = {
       <div class="immersive-question-shell">
         <div class="question-progress">问题 ${this._currentQuestionIndex + 1}/${total}</div>
         <p class="immersive-question-stem">${q.stem}</p>
-        <div class="option-preview-status" id="optionPreviewStatus">正在播放选项视频...</div>
+        <div class="option-preview-status" id="optionPreviewStatus">正在播放题目音频...</div>
         <div class="immersive-option-grid" id="immersiveOptionGrid"></div>
       </div>
     `;
@@ -451,7 +452,53 @@ const Experiment = {
 
     this._previewOptionIndex = 0;
     this._isPreviewingOptions = true;
+    // 先渲染卡片（隐藏状态），等题目音频播完再显示
     this._renderOptionCards(q);
+
+    // 播放题目音频，播完后开始选项视频
+    this._playQuestionAudioAndThenOptions(q);
+  },
+
+  /**
+   * 播放题目音频 (assets/audio/qN.mp3)，结束后进入选项视频
+   */
+  _playQuestionAudioAndThenOptions(question) {
+    const status = document.getElementById('optionPreviewStatus');
+    const audio = new Audio(`assets/audio/${question.id}.mp3`);
+    audio.volume = 1.0;
+
+    if (status) status.textContent = `📢 正在播放题目音频...`;
+
+    audio.play().catch(e => {
+      console.warn('[Cinema] 题目音频播放失败:', e.message);
+      // 音频失败直接进入选项视频
+      window.setTimeout(() => this._startOptionPreviews(), 3000);
+    });
+
+    audio.onended = () => {
+      // 音频播完，等一小段停顿再进选项
+      window.setTimeout(() => this._startOptionPreviews(), 800);
+    };
+
+    // 安全兜底：最多等 8 秒
+    this._questionAudioTimeout = window.setTimeout(() => {
+      if (!audio.ended) {
+        audio.pause();
+        this._startOptionPreviews();
+      }
+    }, 8000);
+  },
+
+  /**
+   * 正式开始播放选项视频
+   */
+  _startOptionPreviews() {
+    if (this._questionAudioTimeout) {
+      clearTimeout(this._questionAudioTimeout);
+      this._questionAudioTimeout = null;
+    }
+    const status = document.getElementById('optionPreviewStatus');
+    if (status) status.textContent = '正在播放选项视频...';
     this._playCurrentOptionPreview();
   },
 
