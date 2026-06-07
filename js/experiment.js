@@ -299,6 +299,7 @@ const Experiment = {
     this._videoIndex = index;
     this._videoPlaying = true;
 
+    video.classList.remove('option-preview-video', 'option-choice-backdrop');
     video.src = src;
     video.load();
     video.play().catch(e => {
@@ -408,7 +409,7 @@ const Experiment = {
     const el = document.getElementById(name + 'Overlay');
     if (el) {
       el.classList.remove('visible');
-      setTimeout(() => { el.style.display = 'none'; }, 6100);
+      setTimeout(() => { el.style.display = 'none'; }, 61000);
     }
   },
 
@@ -499,7 +500,9 @@ const Experiment = {
       return;
     }
 
+    choiceOverlay?.classList.remove('preview-fading');
     choiceOverlay?.classList.add('preview-playing');
+    video.classList.remove('option-choice-backdrop');
 
     cards.forEach((card, index) => {
       card.classList.toggle('previewing', index === this._previewOptionIndex);
@@ -546,21 +549,24 @@ const Experiment = {
 
     this._previewOptionIndex += 1;
     if (question && this._previewOptionIndex < question.options.length) {
-      window.setTimeout(() => this._playCurrentOptionPreview(), 850);
+      window.setTimeout(() => {
+        choiceOverlay?.classList.add('preview-fading');
+        window.setTimeout(() => this._playCurrentOptionPreview(), 650);
+      }, 3000);
     } else {
       mainVideo.pause();
       mainVideo.onended = null;
       mainVideo.onerror = null;
-      mainVideo.removeAttribute('src');
-      mainVideo.load();
       this._finishOptionPreviews(question);
     }
   },
 
   _finishOptionPreviews(question) {
     this._isPreviewingOptions = false;
-    document.getElementById('choiceOverlay')?.classList.remove('preview-playing');
-    document.getElementById('cinemaVideo').classList.remove('option-preview-video');
+    document.getElementById('choiceOverlay')?.classList.remove('preview-playing', 'preview-fading');
+    const video = document.getElementById('cinemaVideo');
+    video.classList.remove('option-preview-video');
+    video.classList.add('option-choice-backdrop');
     const status = document.getElementById('optionPreviewStatus');
     if (status) status.textContent = '四个选项视频已播放完毕，请选择最符合你的选项';
 
