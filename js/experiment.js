@@ -29,8 +29,20 @@ const Experiment = {
   init() {
     DataCollector.reset();
     this._bindEvents();
-    this._showStage(0);
     this._checkBrowser();
+
+    if (EXPERIMENT_CONFIG.experiment.debugMode) {
+      // 调试模式：跳过伦理、麦克风、被试编号，直接进影院
+      DataCollector.setConsent();
+      DataCollector.setSubjectId('DEBUG_' + Date.now().toString(36));
+      // 静默获取麦克风权限（影院内语音录制需要）
+      this.micTestRecorder = new AudioRecorder({ manualMode: true, maxDuration: 30000 });
+      this.micTestRecorder.requestPermission().then(() => {
+        this._showStage(3);
+      });
+    } else {
+      this._showStage(0);  // 正常流程：知情同意开始
+    }
   },
 
   _checkBrowser() {
@@ -396,7 +408,7 @@ const Experiment = {
     const el = document.getElementById(name + 'Overlay');
     if (el) {
       el.classList.remove('visible');
-      setTimeout(() => { el.style.display = 'none'; }, 3100);
+      setTimeout(() => { el.style.display = 'none'; }, 6100);
     }
   },
 
@@ -608,7 +620,7 @@ const Experiment = {
     DataCollector.setChoices(results);
   },
 
-  // ==================== 语音录制（修复可视化） ====================
+  // ==================== 语音录制可视化 ====================
 
   _initCinemaVoice() {
     document.getElementById('cinemaVoiceQuestion').textContent =

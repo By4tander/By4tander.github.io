@@ -841,7 +841,7 @@ body {
   z-index: 10;
   opacity: 0;
   transform: translateY(30px);
-  transition: opacity 3s ease, transform 3s ease;
+  transition: opacity 4s ease, transform 6s ease;
   pointer-events: none;
 }
 

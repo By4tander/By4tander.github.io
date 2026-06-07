@@ -78,6 +78,11 @@ const EXPERIMENT_CONFIG = {
     // 是否显示影院跳过按钮（调试用，正式实验应设为 false）
     showSkipButton: true,
     
+    // ★★★ 调试模式 ★★★
+    // true  = 跳过伦理声明、麦克风测试、被试编号，直接进入全屏视频
+    // false = 完整实验流程（正式实验用）
+    debugMode: true,
+    
     // 是否在本地存储备份数据
     localStorageBackup: true,
   },
